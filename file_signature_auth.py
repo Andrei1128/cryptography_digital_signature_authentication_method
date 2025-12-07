@@ -4,19 +4,11 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, l
 from cryptography.exceptions import InvalidSignature
 import base64
 import hashlib
+import os
 import json
 import datetime
-import os
-try:
-    from PyPDF2 import PdfReader, PdfWriter
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import letter
-    from io import BytesIO
-    PDF_SUPPORT = True
-except ImportError:
-    PDF_SUPPORT = False
 
-class DigitalSignatureAuth:
+class FileSignatureAuth:
     def __init__(self):
         self.private_key = None
         self.public_key = None
@@ -52,40 +44,7 @@ class DigitalSignatureAuth:
         with open(public_key_path, "rb") as f:
             self.public_key = load_pem_public_key(f.read())
 
-    def sign_message(self, message):
-        if not self.private_key:
-            raise ValueError("Private key not loaded")
-
-        signature = self.private_key.sign(
-            message.encode(),
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            hashes.SHA256()
-        )
-        return base64.b64encode(signature).decode()
-
-    def verify_signature(self, message, signature):
-        if not self.public_key:
-            raise ValueError("Public key not loaded")
-
-        try:
-            signature_bytes = base64.b64decode(signature)
-            self.public_key.verify(
-                signature_bytes,
-                message.encode(),
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-            return True
-        except InvalidSignature:
-            return False
-
-    def sign_file(self, file_path, metadata=None):
+    def sign_file(self, file_path):
         if not self.private_key:
             raise ValueError("Private key not loaded")
         
@@ -106,24 +65,12 @@ class DigitalSignatureAuth:
             hashes.SHA256()
         )
         
-        signature_data = {
+        return {
             'signature': base64.b64encode(signature).decode(),
             'file_hash': file_hash.hex(),
             'file_name': os.path.basename(file_path),
-            'file_path': file_path,
             'timestamp': datetime.datetime.now().isoformat()
         }
-        
-        if metadata:
-            signature_data.update({
-                'signer_name': metadata.get('signer_name', ''),
-                'organization': metadata.get('organization', ''),
-                'email': metadata.get('email', ''),
-                'reason': metadata.get('reason', ''),
-                'location': metadata.get('location', '')
-            })
-        
-        return signature_data
 
     def verify_file_signature(self, file_path, signature_data):
         if not self.public_key:
@@ -165,47 +112,35 @@ class DigitalSignatureAuth:
         with open(signature_path, 'r') as f:
             return json.load(f)
 
-    def add_pdf_signature_footer(self, input_path, output_path, metadata):
-        if not PDF_SUPPORT:
-            raise ImportError("PDF support requires PyPDF2 and reportlab packages")
-        
-        signer_name = metadata.get('signer_name', 'Unknown')
-        timestamp = metadata.get('timestamp', datetime.datetime.now().isoformat())
-        organization = metadata.get('organization', '')
-        reason = metadata.get('reason', 'Document signing')
-        location = metadata.get('location', '')
-        
-        signature_text = f"Digitally signed by: {signer_name}"
-        if organization:
-            signature_text += f" ({organization})"
-        signature_text += f"\nDate: {timestamp[:19].replace('T', ' ')}"
-        if reason:
-            signature_text += f"\nReason: {reason}"
-        if location:
-            signature_text += f"\nLocation: {location}"
-        
-        packet = BytesIO()
-        can = canvas.Canvas(packet, pagesize=letter)
-        can.setFont("Helvetica", 8)
-        
-        lines = signature_text.split('\n')
-        y_position = 60
-        for line in lines:
-            can.drawString(50, y_position, line)
-            y_position -= 10
-        
-        can.save()
-        packet.seek(0)
-        
-        existing_pdf = PdfReader(input_path)
-        overlay_pdf = PdfReader(packet)
-        output_pdf = PdfWriter()
-        
-        for i in range(len(existing_pdf.pages)):
-            page = existing_pdf.pages[i]
-            if i == len(existing_pdf.pages) - 1:
-                page.merge_page(overlay_pdf.pages[0])
-            output_pdf.add_page(page)
-        
-        with open(output_path, "wb") as f:
-            output_pdf.write(f)
+    def sign_message(self, message):
+        if not self.private_key:
+            raise ValueError("Private key not loaded")
+
+        signature = self.private_key.sign(
+            message.encode(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return base64.b64encode(signature).decode()
+
+    def verify_signature(self, message, signature):
+        if not self.public_key:
+            raise ValueError("Public key not loaded")
+
+        try:
+            signature_bytes = base64.b64decode(signature)
+            self.public_key.verify(
+                signature_bytes,
+                message.encode(),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except InvalidSignature:
+            return False
