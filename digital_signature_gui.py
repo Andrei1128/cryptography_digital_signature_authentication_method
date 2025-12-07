@@ -65,12 +65,6 @@ class DigitalSignatureGUI:
         self.signature_text = scrolledtext.ScrolledText(self.signature_frame, height=7, width=80, wrap=tk.WORD, font=('Arial', 11))
         self.signature_text.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
 
-        self.file_frame = ttk.LabelFrame(main_frame, text="File Operations", padding="10")
-        self.file_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
-
-        ttk.Button(self.file_frame, text="Sign File", command=self.sign_file).grid(row=0, column=0, padx=10)
-        ttk.Button(self.file_frame, text="Verify File Signature", command=self.verify_file_signature).grid(row=0, column=1, padx=10)
-
         self.action_frame = ttk.Frame(main_frame)
         self.action_frame.grid(row=6, column=0, columnspan=2, pady=15)
 
@@ -200,14 +194,12 @@ class DigitalSignatureGUI:
             self.metadata_frame.grid_remove()
             self.message_frame.grid()
             self.signature_frame.grid()
-            self.file_frame.grid_remove()
             self.sign_button.config(text="Sign Message")
             self.verify_button.config(text="Verify Signature")
         else:
             self.metadata_frame.grid()
             self.message_frame.grid_remove()
             self.signature_frame.grid_remove()
-            self.file_frame.grid()
             self.sign_button.config(text="Sign File")
             self.verify_button.config(text="Verify File Signature")
 
